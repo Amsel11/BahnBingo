@@ -1,0 +1,13 @@
+# Optional: Icons (falls du sie lokal generierst)
+# icon-*.png
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+

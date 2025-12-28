@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <h1>Bahn-Bingo Icon Generator</h1>
+    <p>Klicke auf die Icons unten, um sie herunterzuladen:</p>
+    
+    <canvas id="icon192" width="192" height="192"></canvas>
+    <canvas id="icon512" width="512" height="512"></canvas>
+    
+    <script>
+        function createIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // Hintergrund (DB Rot)
+            ctx.fillStyle = '#f01414';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Weißer Zug-Emoji oder Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🚆', size / 2, size / 2);
+            
+            // Download Link
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}.png`;
+                a.textContent = `Download icon-${size}.png`;
+                a.style.display = 'block';
+                a.style.margin = '10px';
+                document.body.appendChild(a);
+            });
+        }
+        
+        createIcon(document.getElementById('icon192'), 192);
+        createIcon(document.getElementById('icon512'), 512);
+    </script>
+</body>
+</html>
+

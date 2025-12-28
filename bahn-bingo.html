@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f01414">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bahn-Bingo">
+    <link rel="manifest" href="manifest.json">
+    <title>Bahn-Bingo: Collector Beta</title>
+    <style>
+        :root { --db-red: #f01414; --db-grey: #444; --db-light: #f4f4f4; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #e2e2e2; 
+            margin: 0; 
+            padding: 15px; 
+            padding-top: max(15px, env(safe-area-inset-top));
+            padding-bottom: max(15px, env(safe-area-inset-bottom));
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .card { background: white; max-width: 500px; width: 100%; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); padding: 20px; box-sizing: border-box; }
+        h1 { color: var(--db-red); text-align: center; margin: 0 0 15px 0; }
+        
+        .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; background: var(--db-light); padding: 10px; border-radius: 8px; }
+        input { 
+            padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem;
+            min-height: 44px; /* Mindestgröße für Touch-Targets */
+            box-sizing: border-box;
+        }
+        
+        .grid { display: grid; gap: 6px; margin-bottom: 20px; }
+        .cell { 
+            aspect-ratio: 1/1; background: #fff; border: 1px solid #ccc; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            font-size: 0.65rem; font-weight: bold; cursor: pointer; padding: 4px; overflow: hidden;
+            transition: 0.2s; position: relative;
+            touch-action: manipulation; /* Verhindert Doppel-Tap-Zoom */
+            -webkit-tap-highlight-color: transparent;
+            user-select: none; /* Verhindert Textauswahl beim Tippen */
+        }
+
+        .cell.checked-past { background: var(--db-grey); color: #aaa; border-color: #222; }
+        .cell.checked-current { background: var(--db-red); color: white; border-color: #a00; transform: scale(1.05); z-index: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { 
+            padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white;
+            touch-action: manipulation; /* Verhindert Doppel-Tap-Zoom */
+            -webkit-tap-highlight-color: transparent;
+            min-height: 44px; /* Mindestgröße für Touch-Targets */
+        }
+        .btn-finish { background: #28a745; }
+        .btn-reset { background: #999; }
+
+        .stats-box { margin-top: 20px; font-size: 0.9rem; font-weight: bold; color: var(--db-grey); text-align: center; }
+
+        .history { margin-top: 25px; width: 100%; max-width: 500px; background: white; border-radius: 12px; padding: 15px; box-sizing: border-box; }
+        .history h3 { margin-top: 0; border-bottom: 2px solid var(--db-light); padding-bottom: 5px; }
+        .history-item { font-size: 0.8rem; padding: 10px 0; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>🚆 Bahn-Bingo</h1>
+    
+    <div class="input-group">
+        <strong>Aktuelle Fahrt:</strong>
+        <input type="text" id="trainId" placeholder="z.B. ICE 547" oninput="autoSaveInputs()">
+        <input type="text" id="route" placeholder="z.B. Köln -> Berlin" oninput="autoSaveInputs()">
+    </div>
+
+    <div class="grid" id="bingoGrid"></div>
+
+    <div class="stats-box" id="stats">Sammlung: 0 / ?</div>
+
+    <div class="btn-group" style="margin-top: 15px;">
+        <button class="btn-finish" onclick="finishRide()">Fahrt beenden & archivieren</button>
+        <button class="btn-reset" onclick="hardReset()">Alles löschen</button>
+    </div>
+</div>
+
+<div class="history">
+    <h3>📊 Logbuch</h3>
+    <div id="logContent">Noch keine Fahrten im Logbuch.</div>
+</div>
+
+<script>
+    // ===== KONFIGURATION =====
+    // Ändere diese Zahl, um die Grid-Größe zu ändern (z.B. 5 für 5x5, 6 für 6x6)
+    // 5x5 = 25 Phrasen benötigt, 6x6 = 36 Phrasen benötigt
+    const GRID_SIZE = 5;
+    
+    // Phrasen-Liste - füge einfach mehr hinzu, wenn du ein größeres Grid willst
+    // AKTUELL: 50 Phrasen verfügbar (genug für 6x6 = 36, oder sogar 7x7 = 49)
+    const phrases = [
+        // Originale Phrasen
+        "Fahrt entfällt", "Zug evakuiert", "Techn. Störung", "Strecke gesperrt", "Person aufm Gleis", 
+        "Gepäck herren:innenlos", "Zug zu schwer", "Tür defekt", "Personal fehlt", "Folgeverspätung", 
+        "Kein WLAN", "Klimaanlage kaputt", "WC defekt", "Bauarbeiten", "Eis aufm Gleis", 
+        "Stromausfall", "Signalstörung", "Streik !!!", "Weichenwechsel kaputt", "Halt entfällt", 
+        "Endet vorzeitig", "Zug defekt", "Grenzkontrollen", "Anschlusszug bye bye", "> 1h verspätung",
+        // Neue Phrasen vom BINGO-Kart
+        "Laute Musik vom Handy", "Selbstmord-warnung", "Schienen-ersatz-verkehr", "Schrecklicher Akzent in der Ansage", 
+        "Entschuldigung, ich habe diesen Platz reserviert...", "Halt in X enfällt", "Betrunkenes Geschwafel", 
+        "Streik", "Polizei ist auf dem Weg", "Unbefugte Personen auf der Strecke", 
+        "Ersatz-verbindung ist früher da als ursprüngliche Buchung", "Schreiende Kinder", "VERSPÄTET (KOSTENLOS)", 
+        "Reparaturen am Zug/an einem Signal/einer Weiche", "Umstieg erreichen, weil beide Züge verspätet sind", 
+        "Kannste kurz auf meine Sachen aufpassen", "Haben Sie den Sitz wirklich reserviert?", "Zug entfällt", 
+        "Umstieg verpasst", "Zug verpasst, weil er zu früh losgefahren ist", "Zu laute Erwachsene", 
+        "Türen öffnen sich nicht an deiner Haltestelle", "Zug wird zufällig umgeleitet", "Fahrkarten-kontrolle", 
+        "Du kommst pünktlich an"
+        // Füge hier mehr Phrasen hinzu für größere Grids (z.B. 36 für 6x6)
+    ];
+    
+    // Berechne benötigte Anzahl an Phrasen
+    const REQUIRED_PHRASES = GRID_SIZE * GRID_SIZE;
+    
+    // Zeige Info über verfügbare Phrasen
+    console.log(`📊 Phrasen-Info: ${phrases.length} Phrasen verfügbar`);
+    console.log(`📐 Aktuelle Grid-Größe: ${GRID_SIZE}x${GRID_SIZE} (benötigt ${REQUIRED_PHRASES} Phrasen)`);
+    const maxGridSize = Math.floor(Math.sqrt(phrases.length));
+    console.log(`✅ Du kannst bis zu ${maxGridSize}x${maxGridSize} Grid verwenden (${maxGridSize * maxGridSize} Phrasen)`);
+    
+    // Warnung wenn nicht genug Phrasen vorhanden
+    if (phrases.length < REQUIRED_PHRASES) {
+        console.warn(`⚠️ Warnung: Nur ${phrases.length} Phrasen vorhanden, aber ${REQUIRED_PHRASES} benötigt für ${GRID_SIZE}x${GRID_SIZE} Grid.`);
+        console.warn('Die fehlenden Felder werden leer sein.');
+    }
+
+    // Lade Zustand ODER setze Standardwerte
+    let state = JSON.parse(localStorage.getItem('dbBingoCollectorV2')) || {
+        gridOrder: null, // Wird in render() initialisiert
+        pastHits: [],
+        currentHits: [],
+        history: [],
+        inputTrain: "",
+        inputRoute: "",
+        completedLines: [] // Speichert bereits abgeschlossene Zeilen/Spalten
+    };
+    
+    // Backward compatibility: Initialisiere completedLines falls nicht vorhanden
+    if (!state.completedLines) {
+        state.completedLines = [];
+    }
+
+    function save() {
+        localStorage.setItem('dbBingoCollectorV2', JSON.stringify(state));
+    }
+
+    // Speichert die Texteingaben sofort beim Tippen
+    function autoSaveInputs() {
+        state.inputTrain = document.getElementById('trainId').value;
+        state.inputRoute = document.getElementById('route').value;
+        save();
+    }
+
+    function render() {
+        const grid = document.getElementById('bingoGrid');
+        grid.innerHTML = '';
+        
+        // Setze Grid-Spalten dynamisch
+        grid.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+        
+        // Stelle sicher, dass genug Phrasen vorhanden sind
+        const phrasesToUse = [...phrases];
+        while (phrasesToUse.length < REQUIRED_PHRASES) {
+            phrasesToUse.push(""); // Leere Felder wenn nicht genug Phrasen
+        }
+        
+        // Initialisiere gridOrder falls nicht vorhanden oder wenn sich Grid-Größe geändert hat
+        if (!state.gridOrder || state.gridOrder.length !== REQUIRED_PHRASES) {
+            state.gridOrder = phrasesToUse.slice(0, REQUIRED_PHRASES).sort(() => Math.random() - 0.5);
+            save();
+        }
+        
+        state.gridOrder.forEach(text => {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            if (state.pastHits.includes(text)) cell.classList.add('checked-past');
+            if (state.currentHits.includes(text)) cell.classList.add('checked-current');
+            
+            cell.innerText = text;
+            cell.onclick = () => toggleCell(text);
+            grid.appendChild(cell);
+        });
+
+        // Werte in Felder laden
+        document.getElementById('trainId').value = state.inputTrain || "";
+        document.getElementById('route').value = state.inputRoute || "";
+
+        const totalFound = state.pastHits.length;
+        document.getElementById('stats').innerText = `Gesamt-Sammlung: ${totalFound} / ${REQUIRED_PHRASES} Vorfälle`;
+
+        const log = document.getElementById('logContent');
+        if (state.history.length > 0) {
+            log.innerHTML = state.history.map(e => `
+                <div class="history-item">
+                    <strong>${e.date}</strong>: ${e.train}<br>
+                    <small>${e.route} | +${e.newCount} neue Vorfälle</small>
+                </div>
+            `).join('');
+        }
+    }
+
+    function toggleCell(text) {
+        if (state.pastHits.includes(text)) return;
+        
+        const idx = state.currentHits.indexOf(text);
+        if (idx > -1) {
+            state.currentHits.splice(idx, 1);
+        } else {
+            state.currentHits.push(text);
+        }
+        save(); // Sofortiges Speichern nach Klick
+        render();
+        
+        // Prüfe auf vollständige Zeile oder Spalte
+        checkForCompletedLines();
+    }
+
+    function checkForCompletedLines() {
+        const allChecked = [...new Set([...state.pastHits, ...state.currentHits])];
+        
+        // Prüfe Zeilen
+        for (let row = 0; row < GRID_SIZE; row++) {
+            const lineKey = `row-${row}`;
+            // Überspringe wenn bereits abgeschlossen
+            if (state.completedLines.includes(lineKey)) continue;
+            
+            const rowCells = [];
+            for (let col = 0; col < GRID_SIZE; col++) {
+                rowCells.push(state.gridOrder[row * GRID_SIZE + col]);
+            }
+            // Überspringe leere Zellen
+            const validCells = rowCells.filter(cell => cell && cell.trim() !== "");
+            if (validCells.length > 0 && validCells.every(cell => allChecked.includes(cell))) {
+                state.completedLines.push(lineKey);
+                save();
+                showCompletionPopup(`Zeile ${row + 1}`, validCells);
+                return; // Nur eine Meldung pro Klick
+            }
+        }
+        
+        // Prüfe Spalten
+        for (let col = 0; col < GRID_SIZE; col++) {
+            const lineKey = `col-${col}`;
+            // Überspringe wenn bereits abgeschlossen
+            if (state.completedLines.includes(lineKey)) continue;
+            
+            const colCells = [];
+            for (let row = 0; row < GRID_SIZE; row++) {
+                colCells.push(state.gridOrder[row * GRID_SIZE + col]);
+            }
+            // Überspringe leere Zellen
+            const validCells = colCells.filter(cell => cell && cell.trim() !== "");
+            if (validCells.length > 0 && validCells.every(cell => allChecked.includes(cell))) {
+                state.completedLines.push(lineKey);
+                save();
+                showCompletionPopup(`Spalte ${col + 1}`, validCells);
+                return; // Nur eine Meldung pro Klick
+            }
+        }
+    }
+
+    function showCompletionPopup(lineType, cells) {
+        alert(`🎉 ${lineType} vollständig!\n\nVorfälle: ${cells.join(', ')}`);
+    }
+
+    function finishRide() {
+        const train = state.inputTrain || "Unbekannter Zug";
+        const route = state.inputRoute || "Unbekannte Strecke";
+        
+        if (state.currentHits.length === 0) {
+            alert("Markiere erst etwas Neues für diese Fahrt!");
+            return;
+        }
+
+        state.history.unshift({
+            date: new Date().toLocaleDateString('de-DE'),
+            train: train,
+            route: route,
+            newCount: state.currentHits.length
+        });
+
+        state.pastHits = [...new Set([...state.pastHits, ...state.currentHits])];
+        state.currentHits = [];
+        state.inputTrain = "";
+        state.inputRoute = "";
+        
+        save();
+        render();
+        alert("Fahrt erfolgreich abgeschlossen und Sammlerstücke gesichert!");
+    }
+
+    function hardReset() {
+        if (confirm("Wirklich alles (Sammlung & Logbuch) löschen?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+    
+    // Beim Beenden einer Fahrt: Zurücksetzen der completedLines, da neue Fahrt beginnt
+    // (Optional: Falls gewünscht, kann man completedLines auch behalten)
+
+    // Beim Start einmal rendern
+    render();
+
+    // Service Worker für PWA registrieren
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registriert:', registration.scope);
+                })
+                .catch((error) => {
+                    console.log('Service Worker Registrierung fehlgeschlagen:', error);
+                });
+        });
+    }
+</script>
+
+</body>
+</html>

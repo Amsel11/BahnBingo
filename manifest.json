@@ -1,0 +1,25 @@
+{
+  "name": "Bahn-Bingo Collector",
+  "short_name": "Bahn-Bingo",
+  "description": "Sammle alle Bahn-Vorfälle auf deinen Fahrten",
+  "start_url": "/bahn-bingo.html",
+  "display": "standalone",
+  "background_color": "#e2e2e2",
+  "theme_color": "#f01414",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
