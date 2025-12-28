@@ -313,6 +313,35 @@
     // Beim Start einmal rendern
     render();
 
+    // Prüfe ob App im Standalone-Modus läuft (als installierte App)
+    function checkIfStandalone() {
+        // iOS Safari
+        const isIOSStandalone = window.navigator.standalone === true;
+        // Android Chrome
+        const isAndroidStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        // Allgemein
+        const isStandalone = isIOSStandalone || isAndroidStandalone || 
+                            (window.matchMedia('(display-mode: standalone)').matches);
+        
+        if (isStandalone) {
+            console.log('✅ App läuft im Standalone-Modus (als installierte App)!');
+            // Optional: Zeige visuellen Hinweis
+            const indicator = document.createElement('div');
+            indicator.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #28a745; color: white; padding: 5px 10px; border-radius: 5px; font-size: 0.7rem; z-index: 9999;';
+            indicator.textContent = '📱 App-Modus';
+            document.body.appendChild(indicator);
+            // Entferne nach 3 Sekunden
+            setTimeout(() => indicator.remove(), 3000);
+        } else {
+            console.log('🌐 App läuft im Browser-Modus');
+            console.log('💡 Tipp: Installiere die App für die beste Erfahrung!');
+        }
+        return isStandalone;
+    }
+    
+    // Prüfe beim Start
+    checkIfStandalone();
+
     // Service Worker für PWA registrieren
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
