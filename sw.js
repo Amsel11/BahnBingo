@@ -1,8 +1,9 @@
 // Service Worker für Bahn-Bingo
 const CACHE_NAME = 'bahn-bingo-v1';
 const urlsToCache = [
-  './bahn-bingo.html',
-  './manifest.json'
+  '/BahnBingo/bahn-bingo.html',
+  '/BahnBingo/manifest.json',
+  '/BahnBingo/index.html'
 ];
 
 // Install Event - Cache die Dateien

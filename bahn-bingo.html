@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Bahn-Bingo">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/BahnBingo/manifest.json">
     <title>Bahn-Bingo: Collector Beta</title>
     <style>
         :root { --db-red: #f01414; --db-grey: #444; --db-light: #f4f4f4; }
@@ -316,7 +316,7 @@
     // Service Worker für PWA registrieren
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
+            navigator.serviceWorker.register('/BahnBingo/sw.js')
                 .then((registration) => {
                     console.log('Service Worker registriert:', registration.scope);
                 })
